@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -168,6 +168,7 @@
     </section>
 
     <script>
+        
         const button = document.getElementById("voice-command");
         const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
         recognition.continuous = false;
@@ -202,24 +203,30 @@
         };
 
         function controlDevice(command) {
-            // Check if the command matches any of the predefined commands
-            for (let key in deviceMappings) {
-                if (command.includes(key)) {
-                    const deviceId = deviceMappings[key];
-                    const device = document.getElementById(deviceId);
-                    const btn = device.querySelector(".toggle");
+    for (let key in deviceMappings) {
+        if (command.includes(key)) {
+            const deviceId = deviceMappings[key];
+            const device = document.getElementById(deviceId);
+            const btn = device.querySelector(".toggle");
 
-                    if (key.startsWith("turn on") || key.startsWith("open")) {
-                        btn.textContent = "ON";
-                        btn.style.background = "#4caf50";
-                    } else {
-                        btn.textContent = "OFF";
-                        btn.style.background = "#ff5722";
-                    }
-                    break;
-                }
-            }
+            let action = key.startsWith("turn on") || key.startsWith("open") ? "on" : "off";
+
+            // Update UI
+            btn.textContent = action.toUpperCase();
+            btn.style.background = action === "on" ? "#4caf50" : "#ff5722";
+
+            // Send command to actual hardware
+            fetch(`http://192.168.0.x/device/${deviceId}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ state: action })
+            });
+
+            break;
         }
+    }
+}
+
 
         // Add new device dynamically
         document.getElementById("add-device-btn").addEventListener("click", function() {
@@ -246,5 +253,270 @@
             }
         });
     </script>
+</body>
+</html> -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Home Automation Bot</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(to right, #0f2027, #203a43, #2c5364);
+      color: white;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+    header {
+      padding: 20px;
+      font-size: 24px;
+      background: rgba(255, 255, 255, 0.1);
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    .controls {
+      margin: 30px 20px;
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+    #voice-command, #scan-bluetooth {
+      background: #ff9800;
+      border: none;
+      padding: 15px 30px;
+      font-size: 18px;
+      color: white;
+      cursor: pointer;
+      border-radius: 5px;
+      transition: 0.3s;
+      box-shadow: 0 4px 10px rgba(255, 152, 0, 0.5);
+    }
+    #voice-command:hover, #scan-bluetooth:hover {
+      background: #e68900;
+    }
+    #add-device-container {
+      display: flex;
+      gap: 10px;
+    }
+    #add-device {
+      padding: 10px;
+      font-size: 16px;
+      border-radius: 5px;
+      border: none;
+    }
+    #add-device-btn {
+      padding: 10px 20px;
+      font-size: 16px;
+      background: #ff5722;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+      border: none;
+    }
+    #add-device-btn:hover {
+      filter: brightness(0.9);
+    }
+    .devices {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 30px;
+    }
+    .device {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 20px;
+      border-radius: 10px;
+      width: 180px;
+      box-shadow: 0 4px 10px rgba(255, 255, 255, 0.2);
+    }
+    .device h2 {
+      margin-bottom: 10px;
+    }
+    .toggle {
+      margin-top: 10px;
+      padding: 10px;
+      border: none;
+      background: #ff5722;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+    .unpair {
+      padding: 8px 12px;
+      margin-top: 10px;
+      font-size: 14px;
+      background: #e91e63;
+      border: none;
+      border-radius: 5px;
+      color: white;
+      cursor: pointer;
+    }
+    @media (max-width: 768px) {
+      .device {
+        width: 45%;
+      }
+    }
+    @media (max-width: 480px) {
+      #voice-command {
+        font-size: 16px;
+        padding: 12px 24px;
+      }
+      .device {
+        width: 80%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>AI Voice-Controlled Home Automation Bot</h1>
+  </header>
+
+  <section class="controls">
+    <button id="voice-command">🎤 Voice Control</button>
+    <button id="scan-bluetooth">🔍 Scan Bluetooth</button>
+    <div id="add-device-container">
+      <input type="text" id="add-device" placeholder="Enter new device name" />
+      <button id="add-device-btn">Add Device</button>
+    </div>
+  </section>
+
+  <section class="controls">
+    <div class="devices" id="devices-list">
+      <div class="device" id="light"><h2>Lights</h2><button class="toggle">OFF</button></div>
+      <div class="device" id="fan"><h2>Fan</h2><button class="toggle">OFF</button></div>
+      <div class="device" id="ac"><h2>Air Conditioner</h2><button class="toggle">OFF</button></div>
+      <div class="device" id="vacuum"><h2>Vacuum Bot</h2><button class="toggle">OFF</button></div>
+      <div class="device" id="fridge"><h2>Fridge</h2><button class="toggle">OFF</button></div>
+      <div class="device" id="door"><h2>Open Door</h2><button class="toggle">OFF</button></div>
+      <div class="device" id="geyser"><h2>Geyser</h2><button class="toggle">OFF</button></div>
+    </div>
+  </section>
+
+  <script>
+    const button = document.getElementById("voice-command");
+    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    recognition.continuous = false;
+    recognition.lang = "en-US";
+
+    recognition.onresult = function(event) {
+      const command = event.results[0][0].transcript.toLowerCase();
+      console.log("Command received: ", command);
+      controlDevice(command);
+    };
+
+    button.addEventListener("click", () => {
+      recognition.start();
+    });
+
+    let deviceMappings = {
+      "turn on lights": "light",
+      "turn off lights": "light",
+      "turn on fan": "fan",
+      "turn off fan": "fan",
+      "turn on ac": "ac",
+      "turn off ac": "ac",
+      "turn on vacuum": "vacuum",
+      "turn off vacuum": "vacuum",
+      "turn on fridge": "fridge",
+      "turn off fridge": "fridge",
+      "open door": "door",
+      "close door": "door",
+      "turn on geyser": "geyser",
+      "turn off geyser": "geyser"
+    };
+
+    function controlDevice(command) {
+      for (let key in deviceMappings) {
+        if (command.includes(key)) {
+          const deviceId = deviceMappings[key];
+          const device = document.getElementById(deviceId);
+          const btn = device.querySelector(".toggle");
+
+          const action = key.startsWith("turn on") || key.startsWith("open") ? "on" : "off";
+          btn.textContent = action.toUpperCase();
+          btn.style.background = action === "on" ? "#4caf50" : "#ff5722";
+
+          fetch(`http://192.168.0.x/device/${deviceId}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ state: action })
+          });
+          break;
+        }
+      }
+    }
+
+    function addDevice(deviceName, isBluetooth = false) {
+      const devicesList = document.getElementById("devices-list");
+      const deviceId = deviceName.toLowerCase().replace(/\s+/g, '-');
+      const deviceHTML = `
+        <div class="device" id="${deviceId}">
+          <h2>${deviceName}</h2>
+          <button class="toggle">OFF</button>
+          ${isBluetooth ? `<br><button class="unpair">❌ Unpair</button>` : ''}
+        </div>
+      `;
+      devicesList.innerHTML += deviceHTML;
+
+      deviceMappings[`turn on ${deviceName.toLowerCase()}`] = deviceId;
+      deviceMappings[`turn off ${deviceName.toLowerCase()}`] = deviceId;
+      deviceMappings[`open ${deviceName.toLowerCase()}`] = deviceId;
+      deviceMappings[`close ${deviceName.toLowerCase()}`] = deviceId;
+    }
+
+    document.getElementById("add-device-btn").addEventListener("click", () => {
+      const deviceName = document.getElementById("add-device").value.trim();
+      if (deviceName !== "") {
+        addDevice(deviceName);
+        document.getElementById("add-device").value = "";
+      }
+    });
+
+    document.getElementById("scan-bluetooth").addEventListener("click", async () => {
+      try {
+        const device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: ['battery_service']
+        });
+        const name = device.name || "Unnamed Device";
+        alert(`Found and paired: ${name}`);
+        addDevice(name, true);
+      } catch (error) {
+        console.error("Bluetooth scan error:", error);
+        alert("Bluetooth scan failed or was cancelled.");
+      }
+    });
+
+    document.addEventListener("click", function(e) {
+      if (e.target && e.target.classList.contains("toggle")) {
+        const button = e.target;
+        const state = button.textContent === "OFF" ? "on" : "off";
+        button.textContent = state.toUpperCase();
+        button.style.background = state === "on" ? "#4caf50" : "#ff5722";
+      }
+
+      if (e.target && e.target.classList.contains("unpair")) {
+        const deviceDiv = e.target.closest(".device");
+        const deviceId = deviceDiv.id;
+        const deviceName = deviceDiv.querySelector("h2").textContent.toLowerCase();
+
+        delete deviceMappings[`turn on ${deviceName}`];
+        delete deviceMappings[`turn off ${deviceName}`];
+        delete deviceMappings[`open ${deviceName}`];
+        delete deviceMappings[`close ${deviceName}`];
+
+        deviceDiv.remove();
+        alert(`${deviceName} unpaired.`);
+      }
+    });
+  </script>
 </body>
 </html>
